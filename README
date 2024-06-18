@@ -1,4 +1,4 @@
-# CICD implemantation of the 3 microservices project onto and EKS cluster and onto a non-EKS cluster using GitLab
+# CICD implementation of the 3 microservices project onto and EKS cluster and onto a non-EKS cluster using GitLab
 
 ## Tools
 GitLab
