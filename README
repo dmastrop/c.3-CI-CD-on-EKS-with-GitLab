@@ -2,8 +2,10 @@
 
 ## Tools
 GitLab
+
 AWS EKS (using Cloudformation stack) and IAM user role provisioning.
-non-EKS implementation will use kops
+
+non-EKS implementation will use kops and create the CA cert, public cert and private cert so that the kube config file can be created to access the cluster.
 
 
 
