@@ -1,9 +1,9 @@
-# CICD implementation of the 3 microservices project onto and EKS cluster and onto a non-EKS cluster using GitLab
+# CICD implementation of the 3 microservices project onto and EKS cluster and onto a non-EKS cluster using GitLab with properly authenticated user gitlab for kops (non-EKS) and IAM user gitlab2 for EKS for provisioning
 
 ## Tools
 GitLab
-AWS EKS
-non-EKS implementation
+AWS EKS (using Cloudformation stack) and IAM user role provisioning.
+non-EKS implementation will use kops
 
 
 
