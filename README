@@ -3,9 +3,9 @@
 ## Tools
 GitLab
 
-AWS EKS (using Cloudformation stack) and IAM user role provisioning.
+AWS EKS (using Cloudformation stack) and IAM user role provisioning.  For this we need to supply gitlab with the IAM AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as well as the kubeconfig file contents in the ENV vars for the project. Provisioning will be through the gitlab2 IAM user 
 
-non-EKS implementation will use kops and create the CA cert, public cert and private cert so that the kube config file can be created to access the cluster.
+non-EKS implementation will use kops and create the CA cert, public cert and private cert so that the kube config file can be created to access the cluster. For this, gitlab needs to be supplied with the kubeconfig contents in the ENV vars for the project.
 
 
 
