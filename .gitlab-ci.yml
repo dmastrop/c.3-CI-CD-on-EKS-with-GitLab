@@ -17,12 +17,15 @@ build:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD"
     # this will run before main script below. Login using the gitlab credentials that we added to gitlab project
   script:
-    - cd auth
+    - cd source_files/weatherapp/auth
+    #- cd auth
     # first go into the auth directory source code for the authentication microservice.
     - docker build -t $CI_REGISTRY_USER/weatherapp-auth . --no-cache
     # no tag needed. We are just validating that docker can build the image from the auth source code.
+
     - cd ../UI
     - docker build -t $CI_REGISTRY_USER/weatherapp-ui .
+
     - cd ../weather
     - docker build -t $CI_REGISTRY_USER/weatherapp-weather .
   rules: 
@@ -41,7 +44,8 @@ push:
   script:
   # need to tag them because these images are pushed to docker hub
   # CI_COMMIT_SHA has a hash of the commit.
-    - cd auth
+    #- cd auth
+    - cd source_files/weatherapp/auth
     - docker build -t $CI_REGISTRY_USER/weatherapp-auth:$CI_COMMIT_SHA . --no-cache
     - docker push $CI_REGISTRY_USER/weatherapp-auth:$CI_COMMIT_SHA
     - cd ../UI
