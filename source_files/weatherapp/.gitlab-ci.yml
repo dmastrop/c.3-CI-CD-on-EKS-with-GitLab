@@ -2,8 +2,8 @@
 
 stages:
 # this governs the order that the stages will be run
-	- build
-	- push
+  - build
+  - push
 build:
   image: docker:latest
   # this is a docker image that has the docker client baked into it. Used in CI/CD to build docker images
@@ -51,6 +51,6 @@ push:
     - docker build -t $CI_REGISTRY_USER/weatherapp-weather:$CI_COMMIT_SHA .
     - docker push $CI_REGISTRY_USER/weatherapp-weather:$CI_COMMIT_SHA
   only:
-  	- main
+    - main
     # only push the tagged image if on main branch.
     # we do not want to push all branches to docker hub

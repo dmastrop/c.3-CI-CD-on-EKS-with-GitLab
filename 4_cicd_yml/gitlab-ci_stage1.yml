@@ -1,6 +1,6 @@
 stages:
-	- build
-	- push
+  - build
+  - push
 build:
   image: docker:latest
   stage: build
@@ -35,4 +35,4 @@ push:
     - docker build -t $CI_REGISTRY_USER/weatherapp-weather:$CI_COMMIT_SHA .
     - docker push $CI_REGISTRY_USER/weatherapp-weather:$CI_COMMIT_SHA
   only:
-  	- main
+    - main
