@@ -4,7 +4,10 @@ stages:
 # this governs the order that the stages will be run
   - build
   - push
-  
+
+
+
+
 build:
   image: docker:latest
   # this is a docker image that has the docker client baked into it. Used in CI/CD to build docker images
@@ -20,7 +23,8 @@ build:
   script:
     - cd source_files/weatherapp/auth
     #- cd auth
-    # first go into the auth directory source code for the authentication microservice.
+    # first go into the auth directory source code for the authentication microservice.  I need full path here
+    # because my root repo is 2 directories above the source code and root has to have the gitlab-ci.yml
     - docker build -t $CI_REGISTRY_USER/weatherapp-auth . --no-cache
     # no tag needed. We are just validating that docker can build the image from the auth source code.
 
@@ -33,6 +37,11 @@ build:
     - if: '$CI_COMMIT_TAG == null'
     # run this only if no commit tag present
     # this will be run for all branches if no tag present
+    # All branches whenever code is pushed. This only tests if buildable
+    # if tag is present we need to skip this stage (build) and push and go directly to a stage called promote(developed later)
+
+
+
 
 push:
 #  If the image has a tag we do not need to run this again. Skip build and push and jump
@@ -50,9 +59,11 @@ push:
     - cd source_files/weatherapp/auth
     - docker build -t $CI_REGISTRY_USER/weatherapp-auth:$CI_COMMIT_SHA . --no-cache
     - docker push $CI_REGISTRY_USER/weatherapp-auth:$CI_COMMIT_SHA
+
     - cd ../UI
     - docker build -t $CI_REGISTRY_USER/weatherapp-ui:$CI_COMMIT_SHA .
     - docker push $CI_REGISTRY_USER/weatherapp-ui:$CI_COMMIT_SHA
+    
     - cd ../weather
     - docker build -t $CI_REGISTRY_USER/weatherapp-weather:$CI_COMMIT_SHA .
     - docker push $CI_REGISTRY_USER/weatherapp-weather:$CI_COMMIT_SHA
