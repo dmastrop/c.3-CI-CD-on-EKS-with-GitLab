@@ -4,6 +4,7 @@ stages:
 # this governs the order that the stages will be run
   - build
   - push
+  
 build:
   image: docker:latest
   # this is a docker image that has the docker client baked into it. Used in CI/CD to build docker images
@@ -32,6 +33,7 @@ build:
     - if: '$CI_COMMIT_TAG == null'
     # run this only if no commit tag present
     # this will be run for all branches if no tag present
+
 push:
 #  If the image has a tag we do not need to run this again. Skip build and push and jump
 # to stage called promote
