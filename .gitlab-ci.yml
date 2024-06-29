@@ -93,7 +93,9 @@ deliver:
     # For non-EKS cluster do not need this awscli installed. This is only for EKS cluster (which is what I am using)
 
     ## try using the method below with apk
+    # install dependencies
     - apk add python3 py3-awscrt py3-certifi py3-colorama py3-cryptography py3-dateutil py3-distro py3-docutils py3-jmespath py3-prompt_toolkit py3-ruamel.yaml py3-urllib3
+    # install awscli
     #- apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
     - apk add aws-cli
 
@@ -107,7 +109,7 @@ deliver:
     - aws configure set region "us-east-1"
     - mkdir /tmp/.kube
     #- echo $K8S-CONFIG | base64 -d > /tmp/.kube/config
-    - echo KUBECONFIG_EKS | base64 -d > /tmp/.kube/config
+    - echo $KUBECONFIG_EKS | base64 -d > /tmp/.kube/config
     # helm needs access to kubeconfig to provision the app on the EKS cluster
     # The K8S-CONFIG env variable
     - helm repo add bitnami https://charts.bitnami.com/bitnami
