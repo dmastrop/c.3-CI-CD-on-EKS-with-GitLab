@@ -93,13 +93,13 @@ deliver:
     # For non-EKS cluster do not need this awscli installed. This is only for EKS cluster (which is what I am using)
 
     ## try using the method below with apk
-    #- apk add python3 py3-awscrt py3-certifi py3-colorama py3-cryptography py3-dateutil py3-distro py3-docutils py3-jmespath py3-prompt_toolkit py3-ruamel.yaml py3-urlib3
-    #- apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64
+    - apk add python3 py3-awscrt py3-certifi py3-colorama py3-cryptography py3-dateutil py3-distro py3-docutils py3-jmespath py3-prompt_toolkit py3-ruamel.yaml py3-urllib3
+    - apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64
 
     ## try this
-    - pip install urlib3
-    - apk add python3 py3-awscrt py3-certifi py3-colorama py3-cryptography py3-dateutil py3-distro py3-docutils py3-jmespath py3-prompt_toolkit py3-ruamel.yaml
-    - apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64
+    #- pip install urlib3
+    #- apk add python3 py3-awscrt py3-certifi py3-colorama py3-cryptography py3-dateutil py3-distro py3-docutils py3-jmespath py3-prompt_toolkit py3-ruamel.yaml
+    #- apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64
 
 
     #- aws configure set region "eu-west-2"
