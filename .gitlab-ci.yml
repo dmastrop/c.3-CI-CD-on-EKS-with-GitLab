@@ -104,7 +104,7 @@ deliver:
 
 
     #- aws configure set region "eu-west-2"
-    - configure set region "us-east-1"
+    - aws configure set region "us-east-1"
     - mkdir /tmp/.kube
     #- echo $K8S-CONFIG | base64 -d > /tmp/.kube/config
     - echo KUBECONFIG_EKS | base64 -d > /tmp/.kube/config
