@@ -118,12 +118,15 @@ deliver:
     #- cd weatherapp-auth
     - cd source_files/weatherapp/weatherapp-auth
     - helm dependency build .
-    - helm upgrade --install weatherapp-auth --kubeconfig /tmp/.kube/config -n staging --set mysql.auth.rootPassword=$DB_PASSWORD --set image.tag=$CI_COMMIT_SHORT_SHA .
+    #- helm upgrade --install weatherapp-auth --kubeconfig /tmp/.kube/config -n staging --set mysql.auth.rootPassword=$DB_PASSWORD --set image.tag=$CI_COMMIT_SHORT_SHA .
+    - helm upgrade --install weatherapp-auth --kubeconfig /tmp/.kube/config -n staging --set mysql.auth.rootPassword=$DB_PASSWORD --set image.tag=$CI_COMMIT_SHA .
     # note that this is in namepace staging. Note that image tag is commit hash.
     - cd ../weatherapp-ui
-    - helm upgrade --install --kubeconfig /tmp/.kube/config weatherapp-ui -n staging --set image.tag=$CI_COMMIT_SHORT_SHA .
+    #- helm upgrade --install --kubeconfig /tmp/.kube/config weatherapp-ui -n staging --set image.tag=$CI_COMMIT_SHORT_SHA .
+    - helm upgrade --install --kubeconfig /tmp/.kube/config weatherapp-ui -n staging --set image.tag=$CI_COMMIT_SHA .
     - cd ../weatherapp-weather
-    - helm upgrade --install --kubeconfig /tmp/.kube/config -n staging weatherapp-weather --set apikey=$API_KEY --set image.tag=$CI_COMMIT_SHORT_SHA .
+    #- helm upgrade --install --kubeconfig /tmp/.kube/config -n staging weatherapp-weather --set apikey=$API_KEY --set image.tag=$CI_COMMIT_SHORT_SHA .
+    - helm upgrade --install --kubeconfig /tmp/.kube/config -n staging weatherapp-weather --set apikey=$API_KEY --set image.tag=$CI_COMMIT_SHA .
   only:
     - main
     # this is restricted only to main branch. We do not want to stage unless it is merged and validated code to main branch and then publish to staging
