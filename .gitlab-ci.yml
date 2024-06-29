@@ -94,7 +94,8 @@ deliver:
 
     ## try using the method below with apk
     - apk add python3 py3-awscrt py3-certifi py3-colorama py3-cryptography py3-dateutil py3-distro py3-docutils py3-jmespath py3-prompt_toolkit py3-ruamel.yaml py3-urllib3
-    - apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
+    #- apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
+    apk add aws-cli
 
     ## try this
     #- pip install urlib3
