@@ -100,9 +100,18 @@ deliver:
     - apk add aws-cli
 
     ## try this
-    #- pip install urlib3
+    #- pip install urllib3
     #- apk add python3 py3-awscrt py3-certifi py3-colorama py3-cryptography py3-dateutil py3-distro py3-docutils py3-jmespath py3-prompt_toolkit py3-ruamel.yaml
     #- apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64
+
+    # ## ALTERNATE SOLUTION is to use a virtual environment
+    # - python3 -m venv /path/to/venv
+    # # activate the venv
+    # - . /path/to/venv/bin/activate
+    # # install awscli within this virtual environment
+    # - pip install awscli
+    # # exit the venv (note this does not remove it' it can be reactivated with the activate command above)
+    # - deactivate
 
 
     #- aws configure set region "eu-west-2"
@@ -117,6 +126,7 @@ deliver:
   script:
     #- cd weatherapp-auth
     - cd source_files/weatherapp/weatherapp-auth
+    # get the dependency chart for mysql
     - helm dependency build .
     #- helm upgrade --install weatherapp-auth --kubeconfig /tmp/.kube/config -n staging --set mysql.auth.rootPassword=$DB_PASSWORD --set image.tag=$CI_COMMIT_SHORT_SHA .
     - helm upgrade --install weatherapp-auth --kubeconfig /tmp/.kube/config -n staging --set mysql.auth.rootPassword=$DB_PASSWORD --set image.tag=$CI_COMMIT_SHA .
