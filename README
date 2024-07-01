@@ -32,7 +32,7 @@ The gitlab repo will only deploy docker image for main branch push.  For other b
 
 Once the feature change is pushed to gitlab on feature branch, Create a merge request for merging the feature change into main. This is done on gitlab (gitlab repo). This will cause the build stage to run to verify the merge build integrity.  The gitlab CI/CD settings are such that this must PASS in order to actually perform the merge of feature into main branch.
 
-Once this merge request build is passed, the actual Merge can be approved into main  This is a commit into main and so the build stage will be run and then the push stage to docker hub for tagged image, and then fnally the deliver stage to the cluster using helm with the merged feature to main change (staging namespace on the k8s cluster). At this point the new feature in the fully running application can be tested and if approved promoted to  production deployment (deploy stage) (more on this below)
+Once this merge request build is passed, the actual Merge can be approved into main  This is a commit into main and so the build stage will be run and then the push stage to docker hub for tagged image, and then fnally the deliver stage to the cluster using helm with the merged feature to main change (staging namespace on the k8s cluster). At this point the new feature in the fully running application can be tested and if approved promoted to  production deployment and then deployed to production (deploy stage) (more on this below)
 
 
 ## Synchronizing of repos:
@@ -246,7 +246,103 @@ Gitlab will use this kubecocnfig to get access to the current EKS with the permi
 
 
 
-### Test this out with a feature commit
+## Test this out with a feature commit (EKS cluster with gitlab pipelines)
+
+### First create the feature-1 branch on the EC2 controller.  
+
+### Modify the code for the feature branch change
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab$ git checkout feature-1 
+M       .gitignore
+Switched to branch 'feature-1'
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab$ ls
+4_cicd_yml  README  base64  source_files  test.yaml
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab$ cd source_files/
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files$ ls
+weatherapp
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files$ cd weatherapp/
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ ls
+ORIGINAL_SOURCE_helm_charts  auth     docker-compose.yaml    gitlab_kops_cert_user1  weatherapp-auth  weatherapp-weather
+UI                           db-data  gitlab_kops_cert_user  weather                 weatherapp-ui
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ cd UI
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/UI$ ls
+Dockerfile  app.js  package-lock.json  package.json  public
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/UI$ cd public/
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/UI/public$ ls
+index.html  login.html  signup.html  static
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/UI/public$ vi login.html 
+
+
+
+edit login.html "Please log in test2" to Please log in test3"
+
+<div class="container-fluid">
+    <form class="form-signin col-xs-8 col-xs-offset-2  col-sm-6 col-sm-offset-3 col-md-4 col-sm-offset-4 col-lg-2 col-lg-offset-5" method="post" action="/login">
+        <h2 class="form-signin-heading">Please log in test3</h2>
+
+
+### Commit the changes to the feature-1 branch
+
+
+
+### Push the changes to the gitlab repo on feature-1 branch. This will run the build stage only pipeline.
+This will test the integrity of the docker images with the change
+
+
+
+### Merge request assuming the build state passes
+
+NOTE: a link is created by gitlab to hypelink directly to the merge request page
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ git push origin feature-1 
+Enumerating objects: 15, done.
+Counting objects: 100% (15/15), done.
+Delta compression using up to 2 threads
+Compressing objects: 100% (8/8), done.
+Writing objects: 100% (8/8), 655 bytes | 655.00 KiB/s, done.
+Total 8 (delta 6), reused 0 (delta 0), pack-reused 0
+remote: 
+remote: To create a merge request for feature-1, visit:
+remote:   https://gitlab.com/dmastrop/course3_gitlab_section4_weaterapp/-/merge_requests/new?merge_request%5Bsource_branch%5D=feature-1
+remote: 
+To https://gitlab.com/dmastrop/course3_gitlab_section4_weaterapp.git
+ * [new branch]      feature-1 -> feature-1
+
+
+
+### Create the MR
+
+This runs another pipeline build stage to test the merged code into main (but the code has not been committed to main at this point)
+
+The actual Merge will be in blocked state. This will be in a blocked state for the actual merge until another build pipeline is run on the merge code. Once this passes the code can actually be merged into main
+
+
+### Merge the code into main branch
+
+
+This will actually run 3 stages in the pipeline: build again, then push (push the main merged code to docker hub with tag) and finally deliver stage, where the main code is pushed to the staging environment.  This is where the code can actually be functionally tested with the feature change in place.
+
+
+The pods in the staging namespace should all be started and running and the code can be functionally tested.  The deployment of the application is done through helm.
+
+There is a current issue with the backend mysql which is causing the Crash back off on the authentication microservice
+
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl get pods -n staging
+NAME                                  READY   STATUS             RESTARTS      AGE
+weatherapp-auth-6ff98cf84d-ssxj2      0/1     CrashLoopBackOff   2 (23s ago)   47s
+weatherapp-auth-6ff98cf84d-xqjth      0/1     CrashLoopBackOff   2 (22s ago)   47s
+weatherapp-auth-mysql-0               0/1     Pending            0             47s
+weatherapp-ui-d6dfff549-cf5k5         1/1     Running            0             46s
+weatherapp-ui-d6dfff549-dj2tl         1/1     Running            0             46s
+weatherapp-weather-7c556b64bd-4cz2n   1/1     Running            0             45s
+weatherapp-weather-7c556b64bd-jf9lc   1/1     Running            0             45s
+
+
+
+
+## Once complete synch up the other repos
 
 
 
@@ -260,12 +356,33 @@ Gitlab will use this kubecocnfig to get access to the current EKS with the permi
 
 
 
-### to delete the cluster (There is a known bug so disable nodegroup eviction)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## to delete the cluster (There is a known bug so disable nodegroup eviction)
 
 eksctl delete cluster -f cluster.yaml --disable-nodegroup-eviction
 
 
 eksctl delete cluster --disable-nodegroup-eviction or eksctl delete nodegroup --disable-eviction.
+
 
 
 
