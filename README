@@ -381,6 +381,9 @@ weatherapp-weather-7c556b64bd-jf9lc   1/1     Running            0             4
 eksctl delete cluster -f cluster.yaml --disable-nodegroup-eviction
 
 
+eksctl delete cluster --disable-nodegroup-eviction or eksctl delete nodegroup --disable-eviction.
+
+
 
 
 
