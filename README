@@ -1,0 +1,384 @@
+# CICD implementation of the 3 microservices project onto and EKS cluster and onto a non-EKS cluster using GitLab with properly authenticated user gitlab for kops (non-EKS) and IAM user gitlab2 for EKS for provisioning
+
+## Tools
+GitLab
+
+AWS EKS (using Cloudformation stack) and IAM user role provisioning.  For this we need to supply gitlab with the IAM AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as well as the kubeconfig file contents in the ENV vars for the project. Provisioning will be through the gitlab2 IAM user 
+
+non-EKS implementation will use kops and create the CA cert, public cert and private cert so that the kube config file can be created to access the cluster. For this, gitlab needs to be supplied with the kubeconfig contents in the ENV vars for the project.
+
+In both setups a cicd role is created and edited (ConfigMap) for proper permissions.  The cicd role is then bound to the gitlab2 user (EKS) or gitlab user (Non-EKS). For EKS the IAM gitlab2 user credentials need to be added to the ENV vars of gitlab.  This is how gitlab gets access to the cluster
+
+## Github and gitlab repo design
+
+In order to facilitate the transition of the setup to gitlab the following design was employed for the local VSCode workspace on mac and the EC2 controller workspace to exchange code updates
+
+VSCode is mapped to old-origin repo on github for this CI/CD project as well as origin repo on gitlab
+EC2 controller workspace is maapped to both github (as old-origin) and gitlab repo (as origin)
+
+The gitlab repo is basically the gitlab runner code. The gitlab runner runs all of the .gitlab-ci.yml stages  in accordance to the software branch being employed and deployed.(staging and production on staging and default namespace)
+
+The flow **for main branch** is to commit a change on VSCode and push to github
+Then pull the code from github onto the EC2 controller
+Then push the code from EC2 controller to the gitlab repo to start the pipeline
+
+The controller should not be committing to main gitlab repo directly in ordinary software cycle
+Instead for feature change create branch feature on VSCode and push the change to github
+Pull the feature change on feature branch to the controller, from github
+Then push the feature change from the EC controller on feature branch to the gitlab repo 
+This will run a build stage only (non-main branch push) just to insure that the docker image can be built without errors (see below for more information on the gitlab pipeline stages)
+
+The gitlab repo will only deploy docker image for main branch push.  For other branches there is simply a docker image build test (this will be done on the feature branch commit change)
+
+Once the feature change is pushed to gitlab on feature branch, Create a merge request for merging the feature change into main. This is done on gitlab (gitlab repo). This will cause the build stage to run to verify the merge build integrity.  The gitlab CI/CD settings are such that this must PASS in order to actually perform the merge of feature into main branch.
+
+Once this merge request build is passed, the actual Merge can be approved into main  This is a commit into main and so the build stage will be run and then the push stage to docker hub for tagged image, and then fnally the deliver stage to the cluster using helm with the merged feature to main change (staging namespace on the k8s cluster). At this point the new feature in the fully running application can be tested and if approved promoted to  production deployment and then deployed to production (deploy stage) (more on this below)
+
+
+## Synchronizing of repos:
+
+After the feature change is muerged to main, pull changes to main on the EC2 controller workspace to keep it up to date
+Also pull the changes to main on the local VSCode to keep it up to date
+At this point the VSCode can do a push to github repo to keep it up to date.
+
+
+## .gitlab-ci.yml. This file dictates the actions performed during the pipelines. This file must be placed in the root of the gitab repo. All paths in the yml file to source code for docker building, and helm deployment (location of helm charts for the resepctive microservices) have to be done relative to this location.
+
+The .gitlab-ci.yml file dictates the jobs(stages) that are run on gitlab to facilitate the pipelines:
+
+For build stage this is for all branches and simply builds the docker image test
+
+For the push stage to docker hub, this is only done with the final version, i.e. push to main. All of these images wll have SHA1 tags so that they can be used in subsequent stages (below)
+
+For the deliver stage to the EKS cluster using helm, and namespace staging, the deliver stage does this to the active EKS cluser (using the gilab2 credential; see above)
+
+For the promote and deploy to production (default namespace) the promote is only performed on a tagged version and once promoted the manual decision to deploy it to the production cluster (namespace default)
+
+
+## EKS implementation with eksctl (EKS K8s cluster) with gitlab pipelines
+
+### Step1: Bring up the EC2 controller
+
+The controller has all neceassary software for executing the CI/CD pipeline.  eksctl and kops are installed
+
+### Step2: On terminal1 SSH to EC2 controller a
+
+cd into the following directory on the controller
+
+~/course3_eksctl
+
+### Step3: export KUBECONFIG
+
+export the KUBEONFIG env variable on the terminal session
+export KUBECONFIG=~/.kube/eksctl/config
+
+### Step4: Run eksctl create cluster
+
+from the ~/course3_eksctl directory execute:
+eksctl create cluster -f cluster.yaml
+
+The current size is t3.large. I can reduce this down to t3.small similar to what is being used on kops since high load is not expected.  Run a test to ensure that cluster can run with the reduced node size.  The weatherapp will eventually have to run on the cluster via helm deployment fron gitlab runner.
+
+
+### Step5: On separate SSH terminal on the controller: Create the permissions policy and role cicd and bind to gitlab2 (this is done on staging namespace and default namespace; as noted above the default namespace will be used for promition deploy to the production cluster)
+
+This is so that gitlab can provision the cluster as required by many of the stages above in the .gitlab-cy.yml file
+
+
+Download the k8s ConfigMap template onto the controller
+
+curl -o aws-auth-cm.yaml https://s3.us-west-2.amazonaws.com/amazon-eks/cloudformation/2020-10-29/aws-auth-cm.yaml
+
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ ls -la
+total 59344
+drwxrwxr-x  6 ubuntu ubuntu     4096 Jul  1 19:11 .
+drwxr-x--- 26 ubuntu ubuntu     4096 Jul  1 05:54 ..
+drwxrwxr-x  8 ubuntu ubuntu     4096 Jul  1 19:11 .git
+-rw-rw-r--  1 ubuntu ubuntu       14 Jun 24 22:12 .gitignore
+-rw-rw-r--  1 ubuntu ubuntu      538 Jun 20 22:32 01-simple-cluster.yaml
+-rw-rw-r--  1 ubuntu ubuntu    11776 Jun 26 02:10 README
+drwxr-xr-x  3 ubuntu ubuntu     4096 Jun 20 18:16 aws
+-rw-rw-r--  1 ubuntu ubuntu      450 Jul  1 00:10 aws-auth-cm.yaml   <<<<<<<<<<<<<<<<<<<
+-rw-rw-r--  1 ubuntu ubuntu      447 Jun 25 01:11 aws-auth-cm_OLD.yaml
+-rw-rw-r--  1 ubuntu ubuntu 60707665 Jun 24 22:11 awscliv2.zip
+-rw-rw-r--  1 ubuntu ubuntu      296 Jul  1 19:11 cluster.yaml
+drwxrwxr-x  2 ubuntu ubuntu     4096 Jun 26 00:10 export_KUBECONFIG_eksctl_config
+drwxrwxr-x  3 ubuntu ubuntu     4096 Jun 20 22:32 sample_yaml_files
+
+
+
+Run aws sts get-caller-identity to get the account id number
+
+
+
+Edit the aws-auth-cm.yaml file with the following
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapRoles: |
+    - rolearn: arn:aws:iam::590183769797:role/eksctl-cluster2-nodegroup-ng-1-NodeInstanceRole-N<instance-role-id>
+      username: system:node:{{EC2PrivateDNSName}}
+      groups:
+        - system:bootstrappers
+        - system:nodes
+  mapUsers: |
+    - userarn: arn:aws:iam::<service-account-number>:user/gitlab2
+      username: gitlab2
+      groups:
+        - cicd   <<<< note that this is the role that will be creatd for the gitlab2 user
+
+<servcie-account-number> is from command above
+The cluster <instance-role-id> is from the AWS console. It is under the Cloudformation stack ----> ndoegroup link ---> Resources tab ----> NodeInstanceRole link.  This hyperlinks to the IAM role for the cluster nodes
+The id is the trailing digits on the ARN
+
+Once edited save the file above
+
+Apply the ConfigMap to the cluster:  kubectl apply -f aws-auth-cm.yaml
+
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl apply -f aws-auth-cm.yaml
+configmap/aws-auth created
+
+
+Verify the contents of the config map:  kubectl describe configmap -n kube-system aws-auth
+
+The ConfigMap can be edited with the following command:  kubectl edit cm/aws-auth -n kube-system
+
+
+Next, create namespace staging on the cluster
+kubectl create namespace staging
+
+Default ns will be used for production deployment (see repo/pipeline design notes above)
+
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl create ns staging
+namespace/staging created
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl get ns
+NAME              STATUS   AGE
+default           Active   48m
+kube-node-lease   Active   48m
+kube-public       Active   48m
+kube-system       Active   48m
+staging           Active   5s
+
+
+
+
+Create role cicd in staging ns:   kubectl create role cicd --verb="*" --resource="*" --namespace staging
+
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl create role cicd --verb="*" --resource="*" --namespace staging
+role.rbac.authorization.k8s.io/cicd created
+
+
+Edit apiGroups in the role cicd in staging ns: kubectl edit role cicd --namespace staging
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: "2024-07-01T20:44:20Z"
+  name: cicd
+  namespace: staging
+  resourceVersion: "8715"
+  uid: ef3e537c-e618-4513-82b5-96986b010c06
+rules:
+- apiGroups:
+  - ""      <<<<<<<< put * here 
+  resources:
+  - '*'
+  verbs:
+  - '*'
+
+
+
+Finally bind the role cicd with the user gitlab2: kubectl create rolebinding cicd --role cicd --user=gitlab2 -n staging
+
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl create rolebinding cicd --role cicd --user=gitlab2 -n staging
+rolebinding.rbac.authorization.k8s.io/cicd created
+
+
+
+Do the same for the default ns (prodution):
+kubectl create role cicd --verb="*" --resource="*" 
+kubectl edit role cicd
+kubectl create rolebinding cicd --role cicd --user=gitlab2
+
+
+
+### Test out the role provisioning of the gitlab2 user:
+
+switch to AWS_PROFILE=gitlab2 on the SSH terminal
+Verify with: aws configure list
+
+run kubectl get pods -n staging and kubectl get pods
+Both should be successful
+
+Run kubectl get pods -n kube-system.  This should fail
+Run kubectl get nodes This should fail as well.
+
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl get pods
+No resources found in default namespace.
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl get pods -n staging
+No resources found in staging namespace.
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl get pods -n kube-system
+Error from server (Forbidden): pods is forbidden: User "gitlab2" cannot list resource "pods" in API group "" in the namespace "kube-system"
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl get node
+Error from server (Forbidden): nodes is forbidden: User "gitlab2" cannot list resource "nodes" in API group "" at the cluster scope
+
+
+
+
+
+
+### Update the gitlab ENV variable for the latest EKS .kube config file. The ENV variable on gitlab is called KUBECONFIG_EKS
+
+
+In the controller SSH terminal 
+cat ~/.kube/eksctl/config | base64 | tr -d '\n' && echo
+
+And paste the contents into the ENV variable KUBEOCNFIG_EKS on gitlab Settings ---> CICD ----> Variables
+
+Gitlab will use this kubecocnfig to get access to the current EKS with the permissions/role specified for gitlab2 user as indicated in previous section above
+
+
+
+
+## Test this out with a feature commit (EKS cluster with gitlab pipelines)
+
+### First create the feature-1 branch on the EC2 controller.  
+
+### Modify the code for the feature branch change
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab$ git checkout feature-1 
+M       .gitignore
+Switched to branch 'feature-1'
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab$ ls
+4_cicd_yml  README  base64  source_files  test.yaml
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab$ cd source_files/
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files$ ls
+weatherapp
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files$ cd weatherapp/
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ ls
+ORIGINAL_SOURCE_helm_charts  auth     docker-compose.yaml    gitlab_kops_cert_user1  weatherapp-auth  weatherapp-weather
+UI                           db-data  gitlab_kops_cert_user  weather                 weatherapp-ui
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ cd UI
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/UI$ ls
+Dockerfile  app.js  package-lock.json  package.json  public
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/UI$ cd public/
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/UI/public$ ls
+index.html  login.html  signup.html  static
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/UI/public$ vi login.html 
+
+
+
+edit login.html "Please log in test2" to Please log in test3"
+
+<div class="container-fluid">
+    <form class="form-signin col-xs-8 col-xs-offset-2  col-sm-6 col-sm-offset-3 col-md-4 col-sm-offset-4 col-lg-2 col-lg-offset-5" method="post" action="/login">
+        <h2 class="form-signin-heading">Please log in test3</h2>
+
+
+### Commit the changes to the feature-1 branch
+
+
+
+### Push the changes to the gitlab repo on feature-1 branch. This will run the build stage only pipeline.
+This will test the integrity of the docker images with the change
+
+
+
+### Merge request assuming the build state passes
+
+NOTE: a link is created by gitlab to hypelink directly to the merge request page
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ git push origin feature-1 
+Enumerating objects: 15, done.
+Counting objects: 100% (15/15), done.
+Delta compression using up to 2 threads
+Compressing objects: 100% (8/8), done.
+Writing objects: 100% (8/8), 655 bytes | 655.00 KiB/s, done.
+Total 8 (delta 6), reused 0 (delta 0), pack-reused 0
+remote: 
+remote: To create a merge request for feature-1, visit:
+remote:   https://gitlab.com/dmastrop/course3_gitlab_section4_weaterapp/-/merge_requests/new?merge_request%5Bsource_branch%5D=feature-1
+remote: 
+To https://gitlab.com/dmastrop/course3_gitlab_section4_weaterapp.git
+ * [new branch]      feature-1 -> feature-1
+
+
+
+### Create the MR
+
+This runs another pipeline build stage to test the merged code into main (but the code has not been committed to main at this point)
+
+The actual Merge will be in blocked state. This will be in a blocked state for the actual merge until another build pipeline is run on the merge code. Once this passes the code can actually be merged into main
+
+
+### Merge the code into main branch
+
+
+This will actually run 3 stages in the pipeline: build again, then push (push the main merged code to docker hub with tag) and finally deliver stage, where the main code is pushed to the staging environment.  This is where the code can actually be functionally tested with the feature change in place.
+
+
+The pods in the staging namespace should all be started and running and the code can be functionally tested.  The deployment of the application is done through helm.
+
+There is a current issue with the backend mysql which is causing the Crash back off on the authentication microservice
+
+ubuntu@ip-172-31-21-52:~/course3_eksctl$ kubectl get pods -n staging
+NAME                                  READY   STATUS             RESTARTS      AGE
+weatherapp-auth-6ff98cf84d-ssxj2      0/1     CrashLoopBackOff   2 (23s ago)   47s
+weatherapp-auth-6ff98cf84d-xqjth      0/1     CrashLoopBackOff   2 (22s ago)   47s
+weatherapp-auth-mysql-0               0/1     Pending            0             47s
+weatherapp-ui-d6dfff549-cf5k5         1/1     Running            0             46s
+weatherapp-ui-d6dfff549-dj2tl         1/1     Running            0             46s
+weatherapp-weather-7c556b64bd-4cz2n   1/1     Running            0             45s
+weatherapp-weather-7c556b64bd-jf9lc   1/1     Running            0             45s
+
+
+
+
+## Once complete synch up the other repos
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## to delete the cluster (There is a known bug so disable nodegroup eviction)
+
+eksctl delete cluster -f cluster.yaml --disable-nodegroup-eviction
+
+
+eksctl delete cluster --disable-nodegroup-eviction or eksctl delete nodegroup --disable-eviction.
