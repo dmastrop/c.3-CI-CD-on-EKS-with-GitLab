@@ -9,6 +9,12 @@ non-EKS implementation will use kops and create the CA cert, public cert and pri
 
 In both setups a cicd role is created and edited (ConfigMap) for proper permissions.  The cicd role is then bound to the gitlab2 user (EKS) or gitlab user (Non-EKS). For EKS the IAM gitlab2 user credentials need to be added to the ENV vars of gitlab.  This is how gitlab gets access to the cluster
 
+For application deployment use Helm.   This will be an 3 tier application deployment with Golang, javascript and python code for each of the respective microservices
+
+Docker: For the microservices themselves, docker is used. This is development tested prior to this project and docker-compose was ultimately used to wrap up the pre-development testing of the microservices on the EC2 controller.  Then helm (charts) wasintroduced into source code so that the project could be easily deployed to a kops K8s cluster.   
+
+Docker hub repos for each of the 3 microservices. Docker hub is used as the container registry/repo (similar to ECR on AWS) for the PUSH stage (task) of the gitlab-ci.yml CI/CD pipeline manifest file.  Images are SHA1 tagged so that they can be used in subsequent pipeline stages (DELIVER and DEPLOY)
+
 ## Github and gitlab repo design
 
 In order to facilitate the transition of the setup to gitlab the following design was employed for the local VSCode workspace on mac and the EC2 controller workspace to exchange code updates
@@ -43,6 +49,13 @@ At this point the VSCode can do a push to github repo to keep it up to date.
 
 
 ## .gitlab-ci.yml. This file dictates the actions performed during the pipelines. This file must be placed in the root of the gitab repo. All paths in the yml file to source code for docker building, and helm deployment (location of helm charts for the resepctive microservices) have to be done relative to this location.
+
+stages:
+BUILD
+PUSH
+DELIVER
+PROMOTE
+DEPLOY
 
 The .gitlab-ci.yml file dictates the jobs(stages) that are run on gitlab to facilitate the pipelines:
 
