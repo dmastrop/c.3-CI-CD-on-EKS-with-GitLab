@@ -208,7 +208,7 @@ kubectl create rolebinding cicd --role cicd --user=gitlab2
 
 
 
-### Test out the role provisioning of the gitlab2 user:
+### Step6: Test out the role provisioning of the gitlab2 user:
 
 switch to AWS_PROFILE=gitlab2 on the SSH terminal
 Verify with: aws configure list
@@ -233,7 +233,7 @@ Error from server (Forbidden): nodes is forbidden: User "gitlab2" cannot list re
 
 
 
-### Update the gitlab ENV variable for the latest EKS .kube config file. The ENV variable on gitlab is called KUBECONFIG_EKS
+### Step7: Update the gitlab ENV variable for the latest EKS .kube config file. The ENV variable on gitlab is called KUBECONFIG_EKS
 
 
 In the controller SSH terminal 
