@@ -360,7 +360,7 @@ git pull origin main
 
 Once VSCode is synched, push the main branch to github repo (old-origin; origin is used for gitlab repo and old-origin is used for github repo).
 
-
+NOTE: no need to synch up the feature branches as they are ephmeral and they are removed on gitlab.
 
 
 
