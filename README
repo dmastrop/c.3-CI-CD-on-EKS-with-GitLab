@@ -248,7 +248,12 @@ Gitlab will use this kubecocnfig to get access to the current EKS with the permi
 
 ## Test this out with a feature commit (EKS cluster with gitlab pipelines)
 
+Create a new branch each time a new feature or software chage.
+Always create the new branch from MAIN because the full README is in MAIN and the feature branch will be merged back into MAIN at the gitlab repo. Otherwise the README could get overwritten.
+
 ### First create the feature-1 branch on the EC2 controller.  
+
+git checkout -b feature-1
 
 ### Modify the code for the feature branch change
 
@@ -293,7 +298,8 @@ This will test the integrity of the docker images with the change
 
 ### Merge request assuming the build state passes
 
-NOTE: a link is created by gitlab to hypelink directly to the merge request page
+NOTE: a link is created by gitlab to hypelink directly to the merge request page when pushing the original feature branch change to gitlab (see above)
+The link is below.
 
 
 ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ git push origin feature-1 
@@ -314,15 +320,15 @@ To https://gitlab.com/dmastrop/course3_gitlab_section4_weaterapp.git
 
 ### Create the MR
 
-This runs another pipeline build stage to test the merged code into main (but the code has not been committed to main at this point)
+This runs another pipeline build stage (only) to test the merged code into main (but the code has not been committed to main at this point)
 
-The actual Merge will be in blocked state. This will be in a blocked state for the actual merge until another build pipeline is run on the merge code. Once this passes the code can actually be merged into main
+The actual Merge will be in blocked state. This will be in a blocked state for the actual merge until this build pipeline is run on the merge code. Once this passes the code can actually be merged into main
 
 
 ### Merge the code into main branch
 
 
-This will actually run 3 stages in the pipeline: build again, then push (push the main merged code to docker hub with tag) and finally deliver stage, where the main code is pushed to the staging environment.  This is where the code can actually be functionally tested with the feature change in place.
+This will actually run 3 stages in the pipeline: build again, then push (push the main merged code to docker hub with tag) and finally deliver stage, where the main code is pushed to the staging environment.  This is where the code can actually be functionally tested with the feature change in place.  Helm is used to deploy the code in the .gitlab-ci.yml deliver stage.
 
 
 The pods in the staging namespace should all be started and running and the code can be functionally tested.  The deployment of the application is done through helm.
@@ -343,6 +349,23 @@ weatherapp-weather-7c556b64bd-jf9lc   1/1     Running            0             4
 
 
 ## Once complete synch up the other repos
+
+NOTE: the feature branch is deleted along with the Merge request/Merge on gitlab repo. So the only branch left will be main. This is by design as the feature branches are only meant to be ephemeral for a feature commit.
+
+Once the code is delivered to staging, synch up the EC2 controller local repo and the VSCode mac local repo.
+
+Pull the gitlab main repo to their respective local repos
+
+git pull origin main
+
+Once VSCode is synched, push the main branch to github repo (old-origin; origin is used for gitlab repo and old-origin is used for github repo).
+
+
+
+
+
+
+## The next stages in the gitlab pipeline are promote and deploy to production. The k8s namespace default is used for the production dpeloyment.
 
 
 
