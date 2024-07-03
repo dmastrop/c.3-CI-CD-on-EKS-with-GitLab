@@ -381,6 +381,142 @@ NOTE: no need to synch up the feature branches as they are ephmeral and they are
 ## The next stages in the gitlab pipeline are promote and deploy to production. The k8s namespace default is used for the production dpeloyment.
 
 
+The code in the .gitlab.cy.yml file is below
+
+The approach uses git tagging to select commit bulds for promotion to production deployment.
+The git log can be run on the EC2 controller and selected builds based upon commit can be tagged, for example 1.0.1 and 1.0.2. Note that these tagged builds are differentiated from the COMMIT SHA1 tagged bulds on docker hub and for scripting purposes.  The git tagged bulds use the CI_COMMIT_TAG env variable which is used to create the TAGGED_HASH=`git rev-list -n 1 $CI_COMMIT_TAG, whereas the hash commit tagged bulds use the CI_COMMIT_SHA (see push stage in the gitlab-cy.yml script file).  The CI_COMMIT_TAG is useful for the rules setting in each task/job so that we only run promote and deploy stages with CI_COMMIT_TAG docker images on docker hub.
+
+The selected images based upon git log are tagged with: git rev-list -n 1 $CI_COMMIT_TAG for example
+git rev-list -n 1 1.0.1
+
+The methodoligy for candidacy promotion is to first pull the TAGGED_HASH correpsonding build (based on CI_COMMIT_TAG) from docker hub to the gitlab runner running the script. The runner can then tag the image with the CI_COMMIT_TAG and then push the image back to docker hub. These are the CI_COMMIT_TAG images that are present on docker hub 
+
+The images can then be selected for promotion with a feature commit and merge to main. The merge to main 
+For each commit there is an explicit git tag that follows up on the EC2 controller, for example
+git tag -a 1.0.1 -m “login.html feature change”
+
+This is then pushed from the EC2 controller to the gitlab repo:
+git push --tags origin main
+
+The push of the tags cause another pipeline to run but only on promoate state. The pipeline then goes into BLOCKED state, at which time there has to be a manual decision to deploy the tagged build to the default namespace production k8s cluster.   For multiple pushed tag images any one of them can be selected for promotion to deployment.  
+
+Run pipeline can be run from gitlab to select them directly.
+
+Each time a new deployment is made to default namespace the kubectl get pods can be verified for pod rotation/replacment and also the kubectl get svc LoadBalancer can be used to verify the actual change on the browser (or using Selenium for a more automated approach to the QA)
+
+kubectl describe pod <pod name> will show the tagged version in the details as well.
+
+
+### PROMOTE and DEPLOY blocks of .gitlab-cy.yml with comments and notes
+
+
+
+promote:
+  stage: promote
+  services:
+    - docker:dind
+  image: docker:latest
+  before_script:
+    - apk add git
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD"
+
+    # need to get the commit hash that corresponds to the tag that we will use
+    # For example: git rev-list -n 1 1.0.0 
+    # will give the commit hash in the git log that has this 1.0.0 version
+    # This will be reffered to as the TAGGED_HASH.   CI_COMMIT_TAG for example is the 1.0.0 assigned tag to the commit
+    # The TAGGED_HASH are the docker images already pushed to docker hub
+
+    - TAGGED_HASH=`git rev-list -n 1 $CI_COMMIT_TAG`
+  script:
+    - echo "Promoting Docker images"
+    # pull the commit tagged TAGGED_HASH image that is tagged with the CI_COMMIT_TAG, for example 1.0.0
+    - docker pull $CI_REGISTRY_USER/weatherapp-ui:$TAGGED_HASH
+    - docker pull $CI_REGISTRY_USER/weatherapp-auth:$TAGGED_HASH
+    - docker pull $CI_REGISTRY_USER/weatherapp-weather:$TAGGED_HASH
+    # Next tag the TAGGED_HASH version back but as the CI_COMMIT_TAG. Thus we have a 1.0.0. docker tagged image now for promotion candidate
+    - docker tag $CI_REGISTRY_USER/weatherapp-ui:$TAGGED_HASH $CI_REGISTRY_USER/weatherapp-ui:$CI_COMMIT_TAG
+    - docker tag $CI_REGISTRY_USER/weatherapp-auth:$TAGGED_HASH $CI_REGISTRY_USER/weatherapp-auth:$CI_COMMIT_TAG
+    - docker tag $CI_REGISTRY_USER/weatherapp-weather:$TAGGED_HASH $CI_REGISTRY_USER/weatherapp-weather:$CI_COMMIT_TAG
+    # Push these CI_COMMIT_TAG, for example 1.0.0 images to docker hub so that they can be accessed for promotion to deployment
+    - docker push $CI_REGISTRY_USER/weatherapp-ui:$CI_COMMIT_TAG
+    - docker push $CI_REGISTRY_USER/weatherapp-auth:$CI_COMMIT_TAG
+    - docker push $CI_REGISTRY_USER/weatherapp-weather:$CI_COMMIT_TAG
+  rules:
+     # any image that has been git tagged as above with git rev-list -n 1 $CI_COMMIT_TAG will get this promotion candidacy and push to docker hub for possible
+     # deployment
+     # ALL git tagged images will be promoted and are candidates to be manually promoted to production (final stage below)
+    - if: '$CI_COMMIT_TAG'
+
+
+
+
+
+deploy:
+    # The deploy stage is based on many approvals. This is deployment to production (k8s namespace default)
+    # Thus it will be manual and not auto-triggered based upon a branch push.
+
+  stage: deploy
+  image:
+    name: alpine/helm:latest
+    entrypoint: [""]
+
+  before_script:
+    - apk add py3-pip
+
+    ## This pip3 installation method is now longer working
+    #- pip3 install awscli
+    # For non-EKS cluster do not need this awscli installed. This is only for EKS cluster (which is what I am using)
+
+    ## try using the method below with apk
+    # install dependencies
+    - apk add python3 py3-awscrt py3-certifi py3-colorama py3-cryptography py3-dateutil py3-distro py3-docutils py3-jmespath py3-prompt_toolkit py3-ruamel.yaml py3-urllib3
+    # install awscli
+    #- apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
+    - apk add aws-cli
+
+    ## try this
+    #- pip install urllib3
+    #- apk add python3 py3-awscrt py3-certifi py3-colorama py3-cryptography py3-dateutil py3-distro py3-docutils py3-jmespath py3-prompt_toolkit py3-ruamel.yaml
+    #- apk add aws-cli –repository=https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64
+
+    # ## ALTERNATE SOLUTION is to use a virtual environment.
+    # - python3 -m venv /path/to/venv
+    # # activate the venv
+    # - . /path/to/venv/bin/activate
+    # # install awscli within this virtual environment
+    # - pip install awscli
+    # # exit the venv (note this does not remove it' it can be reactivated with the activate command above)
+    # - deactivate
+
+
+    #- aws configure set region "eu-west-2"
+    - aws configure set region "us-east-1"
+    - mkdir /tmp/.kube
+    #- echo $K8S-CONFIG | base64 -d > /tmp/.kube/config
+    - echo $KUBECONFIG_EKS | base64 -d > /tmp/.kube/config
+    # helm needs access to kubeconfig to provision the app on the EKS cluster
+    # The K8S-CONFIG env variable
+    - helm repo add bitnami https://charts.bitnami.com/bitnami
+    # this is required for mysql dependency helm chart
+  
+  script:
+    # access the respective helm charts for the microservices app deployments similar to deliver stage above
+    # This stage is similar to deliver stage with 2 differences: Use CI_COMMIT_TAG in helm deployment. These are promoted images in promote stage above
+    # Second difference is deployment is to default namespcace on K8s cluster and not the staging namespace.
+    # ALTERNATIVELY we can deploy to a different k8s cluster if required by changing the --kubeconfig argument below.
+    #- cd weatherapp-auth
+    - cd source_files/weatherapp/weatherapp-auth
+    - helm dependency build .
+    - helm upgrade --install weatherapp-auth --kubeconfig /tmp/.kube/config --set mysql.auth.rootPassword=$DB_PASSWORD --set image.tag=$CI_COMMIT_TAG .
+    - cd ../weatherapp-ui
+    - helm upgrade --install --kubeconfig /tmp/.kube/config weatherapp-ui --set image.tag=$CI_COMMIT_TAG .
+    - cd ../weatherapp-weather
+    - helm upgrade --install --kubeconfig /tmp/.kube/config weatherapp-weather --set apikey=$API_KEY --set image.tag=$CI_COMMIT_TAG .
+  rules:
+    # only promoted builds with CI_COMMIT_TAG (git tagged) are candidates for promotion to production deployment.
+    - if: '$CI_COMMIT_TAG'
+    # see above. It must be manual due to approval process. User has to presss a button to deploy to production.
+      when: manual
 
 
 
@@ -392,6 +528,10 @@ NOTE: no need to synch up the feature branches as they are ephmeral and they are
 
 
 
+
+## Once complete synch up the other repos
+
+Do a git pull on the EC2 controller fomr origin/main to synch up the gitlab merged feature changes on main back to the EC2 local repo. Do the same on local VSCode workspace on the mac.  Finally push the code from VSCode to github.   Also pull the tags from gitlab main to EC2 controller and to VSCode and push the tags from VSCode to github.
 
 
 
