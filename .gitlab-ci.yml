@@ -149,7 +149,7 @@ deliver:
 
 
 
-  promote:
+promote:
   stage: promote
   services:
     - docker:dind
