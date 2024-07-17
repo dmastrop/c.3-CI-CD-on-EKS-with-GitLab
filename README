@@ -569,4 +569,128 @@ test1
 ## Non-EKS implementation with kops k8s cluster and  with gitlab pipelines:
 
 
-### Step1: 
+### Step1: First create a second cluster called cluster2.holinessinloveofchrist.com
+
+This will be used for the gitlab user and it will use the gitlab related certs for limited access.
+
+This assumes the Route53 hosted zone is already set up and "dig NS cluster2.holinessinloveofchrist.com" should return NS from AWS
+
+The hosted zone on Route53 is cluster2.holinessinloveofchrist.com
+
+ubuntu@ip-172-31-21-52:~/course3_kops$ dig NS cluster2.holinessinloveofchrist.com
+
+; <<>> DiG 9.18.18-0ubuntu0.22.04.2-Ubuntu <<>> NS cluster2.holinessinloveofchrist.com
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 50241
+;; flags: qr rd ra; QUERY: 1, ANSWER: 4, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 65494
+;; QUESTION SECTION:
+;cluster2.holinessinloveofchrist.com. IN        NS
+
+;; ANSWER SECTION:
+cluster2.holinessinloveofchrist.com. 4870 IN NS ns-574.awsdns-07.net.
+cluster2.holinessinloveofchrist.com. 4870 IN NS ns-2017.awsdns-60.co.uk.
+cluster2.holinessinloveofchrist.com. 4870 IN NS ns-470.awsdns-58.com.
+cluster2.holinessinloveofchrist.com. 4870 IN NS ns-1526.awsdns-62.org.
+
+;; Query time: 0 msec
+;; SERVER: 127.0.0.53#53(127.0.0.53) (UDP)
+;; WHEN: Wed Jul 17 22:55:29 UTC 2024
+;; MSG SIZE  rcvd: 201
+
+
+
+We will be binding the gitlab user to the cluster2.holinessinloveofchrist.com kops cluster context with the kubeconfig certificate::
+
+ubuntu@ip-172-31-21-52:~/course3_kops$ kops validate cluster
+Validating cluster cluster2.holinessinloveofchrist.com
+
+INSTANCE GROUPS
+NAME                            ROLE            MACHINETYPE     MIN     MAX     SUBNETS
+control-plane-us-east-1a        ControlPlane    t3.small        1       1       us-east-1a
+nodes-us-east-1a                Node            t3.small        1       1       us-east-1a
+
+NODE STATUS
+NAME                    ROLE            READY
+i-018f27368f789bcd0     control-plane   True
+i-06852ac7533f8eb5d     node            True
+
+Your cluster cluster2.holinessinloveofchrist.com is ready    <<<<<<<<<<<< USE THIS CONTEXT FOR gitlab user certificate>>>>>>>>>>>>
+ubuntu@ip-172-31-21-52:~/course3_kops$ kubectl get node
+NAME                  STATUS   ROLES           AGE   VERSION
+i-018f27368f789bcd0   Ready    control-plane   44m   v1.26.15
+i-06852ac7533f8eb5d   Ready    node            42m   v1.26.15
+ubuntu@ip-172-31-21-52:~/course3_kops$ kubectl config get-contexts
+CURRENT   NAME                                        CLUSTER                                     AUTHINFO                                    NAMESPACE
+*         cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         
+          kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com   
+ubuntu@ip-172-31-21-52:~/course3_kops$ kubectl config use-context kops-project14.holinessinloveofchrist.com
+Switched to context "kops-project14.holinessinloveofchrist.com".
+ubuntu@ip-172-31-21-52:~/course3_kops$ kubectl get node
+NAME                  STATUS   ROLES           AGE    VERSION
+i-03d78c6e917a8e080   Ready    control-plane   4h2m   v1.26.15
+i-0ed01cfc67bd5e4fb   Ready    node            4h     v1.26.15
+ubuntu@ip-172-31-21-52:~/course3_kops$ 
+
+
+
+### Step2: The current kubeconfig certificate now has 2 contexts but the cluster2.holinessinloveofchrist.com context will need to have user changed for gitlab to restrict privileges.  The current user is cluster2.holinessinloveofchrist.com in the kubeconfig cert.  The namespace also needs to be assigned as staging.  The current namespace is blank.
+
+ubuntu@ip-172-31-21-52:~/course3_kops$ kubectl config get-contexts
+CURRENT   NAME                                        CLUSTER                                     AUTHINFO                                    NAMESPACE
+          cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         
+*         kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com  
+
+
+### Step3; SIDE NOTE remove the gitlab cert folder for this project from the github push (add it to .gitignore). We d onot want to be pushing certs to github. These files are only required on the EC2 controller.
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ git rm --cached -r gitlab_kops_cert_user2_cluster2/
+rm 'source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab-config'
+rm 'source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab-csr3.yaml'
+rm 'source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab-csr3_ORIGINAL.yaml'
+rm 'source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab.crt'
+rm 'source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab.csr'
+rm 'source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab.key'
+rm 'source_files/weatherapp/gitlab_kops_cert_user2_cluster2/k8s-ca.crt'
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ git status
+On branch main
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+        deleted:    gitlab_kops_cert_user2_cluster2/gitlab-config
+        deleted:    gitlab_kops_cert_user2_cluster2/gitlab-csr3.yaml
+        deleted:    gitlab_kops_cert_user2_cluster2/gitlab-csr3_ORIGINAL.yaml
+        deleted:    gitlab_kops_cert_user2_cluster2/gitlab.crt
+        deleted:    gitlab_kops_cert_user2_cluster2/gitlab.csr
+        deleted:    gitlab_kops_cert_user2_cluster2/gitlab.key
+        deleted:    gitlab_kops_cert_user2_cluster2/k8s-ca.crt
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp$ git commit -m "remoted the gitlab_kops_cert_user2_cluster2 from cache so that it is removed from github in accordance with .gitignore.  Command is git rm --cached -r gitlab_kops_cert_user2_cluster2/"
+[main 5b618de] remoted the gitlab_kops_cert_user2_cluster2 from cache so that it is removed from github in accordance with .gitignore.  Command is git rm --cached -r gitlab_kops_cert_user2_cluster2/
+ Committer: Ubuntu <ubuntu@ip-172-31-21-52.ec2.internal>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 7 files changed, 125 deletions(-)
+ delete mode 100644 source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab-config
+ delete mode 100644 source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab-csr3.yaml
+ delete mode 100644 source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab-csr3_ORIGINAL.yaml
+ delete mode 100644 source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab.crt
+ delete mode 100644 source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab.csr
+ delete mode 100644 source_files/weatherapp/gitlab_kops_cert_user2_cluster2/gitlab.key
+ delete mode 100644 source_files/weatherapp/gitlab_kops_cert_user2_cluster2/k8s-ca.crt
+
+
+
+### Step3: 
