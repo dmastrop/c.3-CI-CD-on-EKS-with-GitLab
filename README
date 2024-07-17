@@ -48,7 +48,9 @@ Also pull the changes to main on the local VSCode to keep it up to date
 At this point the VSCode can do a push to github repo to keep it up to date.
 
 
-## .gitlab-ci.yml. This file dictates the actions performed during the pipelines. This file must be placed in the root of the gitab repo. All paths in the yml file to source code for docker building, and helm deployment (location of helm charts for the resepctive microservices) have to be done relative to this location.
+## .gitlab-ci.yml. 
+
+This file dictates the actions performed during the pipelines. This file must be placed in the root of the gitab repo. All paths in the yml file to source code for docker building, and helm deployment (location of helm charts for the resepctive microservices) have to be done relative to this location.
 
 stages:
 BUILD
@@ -550,8 +552,6 @@ Do a git pull on the EC2 controller fomr origin/main to synch up the gitlab merg
 
 
 
-
-
 ## to delete the cluster (There is a known bug so disable nodegroup eviction)
 
 eksctl delete cluster -f cluster.yaml --disable-nodegroup-eviction
@@ -561,3 +561,12 @@ eksctl delete cluster --disable-nodegroup-eviction or eksctl delete nodegroup --
 
 
 test1
+
+
+
+
+
+## Non-EKS implementation with kops k8s cluster and  with gitlab pipelines:
+
+
+### Step1: 
