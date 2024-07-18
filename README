@@ -884,8 +884,8 @@ drwxrwxr-x 13 ubuntu ubuntu 4096 Jul 17 22:21 ..
 -rw-rw-r--  1 ubuntu ubuntu  980 Jul 17 22:22 gitlab.csr
 -rw-------  1 ubuntu ubuntu 1704 Jul 17 22:22 gitlab.key
 -rw-rw-r--  1 ubuntu ubuntu 1196 Jul 18 00:22 gitlab_cluster2.crt  <<< public signed cert for gitlab_cluster2
--rw-rw-r--  1 ubuntu ubuntu  993 Jul 17 23:52 gitlab_cluster2.csr  <<< private key for the gitlab_cluster2
--rw-------  1 ubuntu ubuntu 1704 Jul 17 23:47 gitlab_cluster2.key
+-rw-rw-r--  1 ubuntu ubuntu  993 Jul 17 23:52 gitlab_cluster2.csr 
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 23:47 gitlab_cluster2.key <<<< private key for teh gitlab_cluster2
 -rw-rw-r--  1 ubuntu ubuntu 1090 Jul 17 22:22 k8s-ca.crt
 -rw-rw-r--  1 ubuntu ubuntu 1090 Jul 18 00:30 k8s-ca_cluster2.crt   <<<<< CA cert for the cluster2 api server
 
