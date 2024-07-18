@@ -560,7 +560,12 @@ eksctl delete cluster -f cluster.yaml --disable-nodegroup-eviction
 eksctl delete cluster --disable-nodegroup-eviction or eksctl delete nodegroup --disable-eviction.
 
 
-test1
+
+
+
+
+
+
 
 
 
