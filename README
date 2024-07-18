@@ -693,4 +693,446 @@ After doing this, you may fix the identity used for this commit with:
 
 
 
-### Step3: 
+### Step4: Create the gitlab_cluster2.key private key that will be used for the gitlab user authentication
+
+openssl genrsa -out gitlab_cluster2.key 2048
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ ls -la
+total 44
+drwxrwxr-x  2 ubuntu ubuntu 4096 Jul 17 23:47 .
+drwxrwxr-x 13 ubuntu ubuntu 4096 Jul 17 22:21 ..
+-rw-------  1 ubuntu ubuntu 5939 Jul 17 22:22 gitlab-config
+-rw-rw-r--  1 ubuntu ubuntu 1496 Jul 17 22:22 gitlab-csr3.yaml
+-rw-rw-r--  1 ubuntu ubuntu  187 Jul 17 22:22 gitlab-csr3_ORIGINAL.yaml
+-rw-rw-r--  1 ubuntu ubuntu 1188 Jul 17 22:22 gitlab.crt
+-rw-rw-r--  1 ubuntu ubuntu  980 Jul 17 22:22 gitlab.csr
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 22:22 gitlab.key
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 23:47 gitlab_cluster2.key <<<<<<<<<<
+-rw-rw-r--  1 ubuntu ubuntu 1090 Jul 17 22:22 k8s-ca.crt
+
+
+
+### Step5: Create the CSR (Cert request) to get the private key gitlab_cluster2.key signed by the api server of this cluster2 kops cluster context. NOTE: the user is named gitlab_cluster2 as indicated below. This name is the one that should be used in the pipleine cocnfiguration on gitlab in a later step.
+
+This will permit the gitlab_cluster2 user to be authenticated to the cluster2 via the cluster2 api (master) node
+
+openssl req -new -key gitlab_cluster2.key -out gitlab_cluster2.csr
+
+
+openssl req -new -key gitlab_cluster2.key -out gitlab_cluster2.csr
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:
+State or Province Name (full name) [Some-State]:
+Locality Name (eg, city) []:
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:
+Organizational Unit Name (eg, section) []:
+Common Name (e.g. server FQDN or YOUR name) []:gitlab_cluster2  <<<<<<<
+Email Address []:
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:
+An optional company name []:
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ ls -la
+total 48
+drwxrwxr-x  2 ubuntu ubuntu 4096 Jul 17 23:52 .
+drwxrwxr-x 13 ubuntu ubuntu 4096 Jul 17 22:21 ..
+-rw-------  1 ubuntu ubuntu 5939 Jul 17 22:22 gitlab-config
+-rw-rw-r--  1 ubuntu ubuntu 1496 Jul 17 22:22 gitlab-csr3.yaml
+-rw-rw-r--  1 ubuntu ubuntu  187 Jul 17 22:22 gitlab-csr3_ORIGINAL.yaml
+-rw-rw-r--  1 ubuntu ubuntu 1188 Jul 17 22:22 gitlab.crt
+-rw-rw-r--  1 ubuntu ubuntu  980 Jul 17 22:22 gitlab.csr
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 22:22 gitlab.key
+-rw-rw-r--  1 ubuntu ubuntu  993 Jul 17 23:52 gitlab_cluster2.csr
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 23:47 gitlab_cluster2.key
+-rw-rw-r--  1 ubuntu ubuntu 1090 Jul 17 22:22 k8s-ca.crt
+
+### Step6: edit the gitlab-csr3_ORIGINAL.yaml file for this CSR request. We will use kubectl to the cluster2 to get the private key signed via this file.
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ cat gitlab-csr3_ORIGINAL.yaml 
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: gitlab_cluster2 <<<<<<<<<<<<<<<
+spec:
+  request:    <<<<<<<<<<<<<<<<<<<< the CSR will be pasted here but it must be base64 encoded and newline removed>>>>>>>>>>>>>>>>>>>>
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+    - client auth
+
+
+### Step7: base64 convert the gitlab_cluster2.csr file and remove the newlines. Paste this into yaml file above
+
+cat gitlab_cluster2.csr | base64 | tr -d '\n'
+
+copy output into this file below
+vim gitlab-csr4_cluster2.yaml 
+
+
+ntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ cat gitlab-csr4-cluster2.yaml 
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: gitlab_cluster2
+spec:
+  request: ********
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+    - client auth
+
+
+### Step8: submit the CSR request to get gitlab_cluster.key signed via kubectl command below to the api server
+
+Make sure that the context is set correctly to cluster2
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config get-contexts
+CURRENT   NAME                                        CLUSTER                                     AUTHINFO                                    NAMESPACE
+          cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         
+*         kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com   
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config use-context cluster2.holinessinloveofchrist.com
+Switched to context "cluster2.holinessinloveofchrist.com".
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config get-contexts
+CURRENT   NAME                                        CLUSTER                                     AUTHINFO                                    NAMESPACE
+*         cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         
+          kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com
+
+
+
+
+Submit the CSR request to cluster2 api server
+
+kubectl apply -f gitlab-csr4_cluster2.yaml 
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl apply -f gitlab-csr4_cluster2.yaml 
+certificatesigningrequest.certificates.k8s.io/gitlab_cluster2 created
+
+
+### Step9: Verify that that CSR has been submitted and is in pending state
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get csr
+NAME              AGE   SIGNERNAME                            REQUESTOR        REQUESTEDDURATION   CONDITION
+gitlab_cluster2   4s    kubernetes.io/kube-apiserver-client   kubecfg-Ubuntu   <none>              Pending
+
+NOTE that this is only on cluster2 context and NOT on kops-project14 context.
+
+
+
+### Step10: As administrator you can approve the CSR request with kubectl
+
+kubectl certificate approve gitlab_cluster2
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl certificate approve gitlab_cluster2
+certificatesigningrequest.certificates.k8s.io/gitlab_cluster2 approved
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get csr
+NAME              AGE   SIGNERNAME                            REQUESTOR        REQUESTEDDURATION   CONDITION
+gitlab_cluster2   95s   kubernetes.io/kube-apiserver-client   kubecfg-Ubuntu   <none>              Approved,Issued
+
+
+
+### Step11: Decode the approved cert in plain text (extract the cert from the signed cert in base64). This will be saved as a *.crt file. This file is the signed counterpart public key to the private key gitlab_cluster2.key
+
+kubectl get csr gitlab_cluster2 -o jsonpath='{.status.certificate}' | base64 -d > gitlab_cluster2.crt
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get csr gitlab_cluster2 -o jsonpath='{.status.certificate}' | base64 -d > gitlab_cluster2.crt
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ ls -la
+total 56
+drwxrwxr-x  2 ubuntu ubuntu 4096 Jul 18 00:22 .
+drwxrwxr-x 13 ubuntu ubuntu 4096 Jul 17 22:21 ..
+-rw-------  1 ubuntu ubuntu 5939 Jul 17 22:22 gitlab-config
+-rw-rw-r--  1 ubuntu ubuntu 1496 Jul 17 22:22 gitlab-csr3.yaml
+-rw-rw-r--  1 ubuntu ubuntu  187 Jul 17 22:22 gitlab-csr3_ORIGINAL.yaml
+-rw-rw-r--  1 ubuntu ubuntu 1521 Jul 18 00:15 gitlab-csr4_cluster2.yaml
+-rw-rw-r--  1 ubuntu ubuntu 1188 Jul 17 22:22 gitlab.crt
+-rw-rw-r--  1 ubuntu ubuntu  980 Jul 17 22:22 gitlab.csr
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 22:22 gitlab.key
+-rw-rw-r--  1 ubuntu ubuntu 1196 Jul 18 00:22 gitlab_cluster2.crt  <<<<<<<<<<
+-rw-rw-r--  1 ubuntu ubuntu  993 Jul 17 23:52 gitlab_cluster2.csr
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 23:47 gitlab_cluster2.key
+-rw-rw-r--  1 ubuntu ubuntu 1090 Jul 17 22:22 k8s-ca.crt
+
+
+### Step12: the signed public cert is gitlab_cluster2.crt and the private key is gitlab_cluster2.key
+
+
+### Step13: Use these keys to create a new kubeconfig file for the gitlab_cluster2 user.  First get the CA cert for the cluster2 kops deployment.
+
+kubectl config view -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' --raw | base64 --decode > k8s-ca_cluster2.crt
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config view -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' --raw | base64 --decode > k8s-ca_cluster2.crt
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ ls -la
+total 60
+drwxrwxr-x  2 ubuntu ubuntu 4096 Jul 18 00:30 .
+drwxrwxr-x 13 ubuntu ubuntu 4096 Jul 17 22:21 ..
+-rw-------  1 ubuntu ubuntu 5939 Jul 17 22:22 gitlab-config
+-rw-rw-r--  1 ubuntu ubuntu 1496 Jul 17 22:22 gitlab-csr3.yaml
+-rw-rw-r--  1 ubuntu ubuntu  187 Jul 17 22:22 gitlab-csr3_ORIGINAL.yaml
+-rw-rw-r--  1 ubuntu ubuntu 1521 Jul 18 00:15 gitlab-csr4_cluster2.yaml
+-rw-rw-r--  1 ubuntu ubuntu 1188 Jul 17 22:22 gitlab.crt
+-rw-rw-r--  1 ubuntu ubuntu  980 Jul 17 22:22 gitlab.csr
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 22:22 gitlab.key
+-rw-rw-r--  1 ubuntu ubuntu 1196 Jul 18 00:22 gitlab_cluster2.crt  <<< public signed cert for gitlab_cluster2
+-rw-rw-r--  1 ubuntu ubuntu  993 Jul 17 23:52 gitlab_cluster2.csr  <<< private key for the gitlab_cluster2
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 23:47 gitlab_cluster2.key
+-rw-rw-r--  1 ubuntu ubuntu 1090 Jul 17 22:22 k8s-ca.crt
+-rw-rw-r--  1 ubuntu ubuntu 1090 Jul 18 00:30 k8s-ca_cluster2.crt   <<<<< CA cert for the cluster2 api server
+
+### Step14: move the old certs to subfolder
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ ls -la
+total 48
+drwxrwxr-x  3 ubuntu ubuntu 4096 Jul 18 00:35 .
+drwxrwxr-x 13 ubuntu ubuntu 4096 Jul 17 22:21 ..
+-rw-rw-r--  1 ubuntu ubuntu 1496 Jul 17 22:22 gitlab-csr3.yaml
+-rw-rw-r--  1 ubuntu ubuntu  187 Jul 17 22:22 gitlab-csr3_ORIGINAL.yaml
+-rw-rw-r--  1 ubuntu ubuntu 1521 Jul 18 00:15 gitlab-csr4_cluster2.yaml
+-rw-rw-r--  1 ubuntu ubuntu 1196 Jul 18 00:22 gitlab_cluster2.crt
+-rw-rw-r--  1 ubuntu ubuntu  993 Jul 17 23:52 gitlab_cluster2.csr
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 23:47 gitlab_cluster2.key
+-rw-rw-r--  1 ubuntu ubuntu 1090 Jul 18 00:30 k8s-ca_cluster2.crt
+drwxrwxr-x  2 ubuntu ubuntu 4096 Jul 18 00:35 old_certs
+
+
+### Step15: Begin to integrate the .key, .crt, and k8s-ca_cluster2.crt file into a new gitlab_cluster2-config kubeconfig file that will be used to access cluster2 for gitlab_cluster2 user by gitlab CI/CD. The command below will add the CA cert to this gitlab_cluster2-config file (set the cluster) that has cluster2 name and api.cluster2 set as api server.
+
+kubectl config set-cluster $(kubectl config view -o jsonpath='{.clusters[0].name}') --server =$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}') --certificate-authority=k8s-ca_cluster2.crt --kubeconfig=gitlab_cluster2-config --embed-certs
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config set-cluster $(kubectl config view -o jsonpath='{.clusters[0].name}') --server =$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}') --certificate-authority=k8s-ca_cluster2.crt --kubeconfig=gitlab_cluster2-config --embed-certs
+Cluster "cluster2.holinessinloveofchrist.com" set.  <<<<<<<<<<<<<<<< SET THE CLUSTER ON THE kubeconfig file>>>>>>>>>>>>>>>>
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ ls -la
+total 44
+drwxrwxr-x  3 ubuntu ubuntu 4096 Jul 18 00:37 .
+drwxrwxr-x 13 ubuntu ubuntu 4096 Jul 17 22:21 ..
+-rw-rw-r--  1 ubuntu ubuntu 1496 Jul 17 22:22 gitlab-csr3.yaml
+-rw-rw-r--  1 ubuntu ubuntu  187 Jul 17 22:22 gitlab-csr3_ORIGINAL.yaml
+-rw-rw-r--  1 ubuntu ubuntu 1521 Jul 18 00:15 gitlab-csr4_cluster2.yaml
+-rw-------  1 ubuntu ubuntu 1706 Jul 18 00:37 gitlab_cluster2-config  <<<<<
+-rw-rw-r--  1 ubuntu ubuntu 1196 Jul 18 00:22 gitlab_cluster2.crt
+-rw-rw-r--  1 ubuntu ubuntu  993 Jul 17 23:52 gitlab_cluster2.csr
+-rw-------  1 ubuntu ubuntu 1704 Jul 17 23:47 gitlab_cluster2.key
+-rw-rw-r--  1 ubuntu ubuntu 1090 Jul 18 00:30 k8s-ca_cluster2.crt
+drwxrwxr-x  2 ubuntu ubuntu 4096 Jul 18 00:36 old_certs
+
+
+### Step16: embed the public and private key certs of gitlab into the kubeconfig gitlab_cluster2-config file above. This is critical. Note the user (credential) is set to gitlab_cluster2
+
+kubectl config set-credentials gitlab_cluster2 --client-certificate=gitlab_cluster2.crt --client-key=gitlab_cluster2.key --embed-certs --kubeconfig=gitlab_cluster2-config
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config set-credentials gitlab_cluster2 --client-certificate=gitlab_cluster2.crt --client-key=gitlab_cluster2.key --embed-certs --kubeconfig=gitlab_cluster2-config
+User "gitlab_cluster2" set   <<<<<<< SET THE USER and public and private key of user on the kubeconfig file>>>>>>>
+
+
+### Step17: cat the gitlab_cluster2-config file and make sure public, private and CA cert are present as well as user set to gitlab_cluster2. This is the completed kubeconfig file for the gitlab_cluster2 user on cluster2 kops cluster.
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ cat gitlab_cluster2-config 
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: *******
+    server: =https://api.cluster2.holinessinloveofchrist.com
+  name: cluster2.holinessinloveofchrist.com
+contexts: null
+current-context: ""
+kind: Config
+preferences: {}
+users:
+- name: gitlab_cluster2  <<<<<<<<<<<<<<< USER >>>>>>>>>>>>>>>
+  user:
+    client-certificate-data: ******* <<<<< PUBLIC cert for user >>>>>
+    client-key-data: ******* <<<< PRIVATE cert for user >>>>
+
+
+
+### Step18: Set the context to cluster2.holinessinloveofchrist.com, namespace to staging, user to gitlab_cluster2 and kubconfig file to gitlab_cluster2-config. The user gitlab_cluster2 is now bound to the cluster and uses this kubeconfig file for acceess.
+
+kubectl config set-context cluster2.holinessinloveofchrist.com --cluster=$(kubectl config view -o jsonpath='{.clusters[0].name}') --namespace=staging --user=gitlab_cluster2 --kubeconfig=gitlab_cluster2-config
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config set-context cluster2.holinessinloveofchrist.com --cluster=$(kubectl config view -o jsonpath='{.clusters[0].name}') --namespace=staging --user=gitlab_cluster2 --kubeconfig=gitlab_cluster2-config
+Context "cluster2.holinessinloveofchrist.com" created.
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config get-contexts
+CURRENT   NAME                                        CLUSTER                                     AUTHINFO                                    NAMESPACE
+*         cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         cluster2.holinessinloveofchrist.com         
+          kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com   kops-project14.holinessinloveofchrist.com
+
+
+### Step19: set the use context to cluster2.holinessinloveofchrist.com and use the gitlab_cluster2-config kubeconfig file 
+
+kubectl config use-context cluster2.holinessinloveofchrist.com --kubeconfig=gitlab_cluster2-config
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config use-context cluster2.holinessinloveofchrist.com --kubeconfig=gitlab_cluster2-config
+Switched to context "cluster2.holinessinloveofchrist.com".
+
+
+### Step20: Define the permissions for the gitlab_cluster2 user in the staging namespace
+
+
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl create role cicd --verb="*" --resource="*" --namespace staging
+role.rbac.authorization.k8s.io/cicd created
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get role -n staging
+NAME   CREATED AT
+cicd   2024-07-18T01:06:15Z
+
+
+This will give complete access to the clsuter2 but only on the staing namespace which will be used for gitlab.
+
+
+#### add apiGroups * to permissions with edit of the cicd role
+
+kubectl edit role cicd -n staging
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: "2024-07-18T01:06:15Z"
+  name: cicd
+  namespace: staging
+  resourceVersion: "30804"
+  uid: 7cf9c7ba-bbb3-406b-9366-c8785eb58b24
+rules:
+- apiGroups:
+  - '*'    <<<<<<<<<<<<<<<<<
+  resources:
+  - '*'
+  verbs:
+  - '*'
+~        
+
+
+#### Bind the role cicd to the gitlab_cluster2 user
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl create rolebinding cicd --role cicd --user=gitlab_cluster2 -n staging
+rolebinding.rbac.authorization.k8s.io/cicd created
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get rolebinding -n staging
+NAME   ROLE        AGE
+cicd   Role/cicd   24s
+
+
+#### create the staging namespace
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config use-context cluster2.holinessinloveofchrist.com --kubeconfig=gitlab_cluster2-config
+Switched to context "cluster2.holinessinloveofchrist.com".
+
+
+#### Create the permissions role “cicd” for the gitlab_cluster2 user in this cluster2 context
+
+kubectl create role cicd --verb="*" --resource="*" --namespace staging
+
+
+
+#### do the same for the default namespace (no need to specify it)
+
+kubectl create role cicd --verb="*" --resource="*"
+
+kubectl edit role cicd
+
+kubectl create rolebinding cicd --role cicd --user=gitlab_cluster2
+
+
+
+### Step21: At this point the gitlab_cluster2 user of cluster2 should only be able to have access to staging and default ns and not any other namespaces
+
+
+Getting same error as before
+
+
+ kubectl get pods -n staging --kubeconfig gitlab_cluster2-config
+error: host must be a URL or a host:port pair: "=https://api.cluster2.holinessinloveofchrist.com"
+
+
+
+There is a typo in the kubeconfig cert
+
+    server: =https://api.cluster2.holinessinloveofchrist.com
+  name: cluster2.holinessinloveofchrist.com
+
+
+  should be server: https://api.cluster2.holinessinloveofchrist.com
+
+This is with gitlab_cluster2 user cert:
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get pods  --kubeconfig gitlab_cluster2-config_FIX 
+No resources found in staging namespace.
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get pods -n staging  --kubeconfig gitlab_cluster2-config_FIX 
+No resources found in staging namespace.
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get pods -n kube-system  --kubeconfig gitlab_cluster2-config_FIX 
+Error from server (Forbidden): pods is forbidden: User "gitlab_cluster2" cannot list resource "pods" in API group "" in the namespace "kube-system"
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get node  --kubeconfig gitlab_cluster2-config_FIX 
+Error from server (Forbidden): nodes is forbidden: User "gitlab_cluster2" cannot list resource "nodes" in API group "" at the cluster scope
+
+
+
+As expected the staging and default ns are accessible but the kube-system ns is not.
+Same with kube-public and kube-node-release
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get ns
+NAME              STATUS   AGE
+default           Active   3h9m
+kube-node-lease   Active   3h9m
+kube-public       Active   3h9m
+kube-system       Active   3h9m
+staging           Active   46m
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get pods -n kube-public  --kubeconfig gitlab_cluster2-config_FIX 
+
+Error from server (Forbidden): pods is forbidden: User "gitlab_cluster2" cannot list resource "pods" in API group "" in the namespace "kube-public"
+
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get pods -n kube-node-release  --kubeconfig gitlab_cluster2-config_FIX 
+Error from server (Forbidden): pods is forbidden: User "gitlab_cluster2" cannot list resource "pods" in API group "" in the namespace "kube-node-release"
+
+
+
+
+This is with the admin user: as expected kube-system namespace (and the other ns) is accessible
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get pods -n kube-system
+NAME                                          READY   STATUS    RESTARTS       AGE
+aws-cloud-controller-manager-fwcx5            1/1     Running   0              3h7m
+cilium-hrgrs                                  1/1     Running   0              3h7m
+cilium-operator-6f766c7894-vmzbp              1/1     Running   1 (3h6m ago)   3h7m
+cilium-pbfl4                                  1/1     Running   0              3h6m
+coredns-5779545d4-g6gv4                       1/1     Running   0              3h7m
+coredns-5779545d4-qn254                       1/1     Running   0              3h5m
+coredns-autoscaler-7f4ddcc6c7-xgzzt           1/1     Running   0              3h7m
+dns-controller-5f8f449584-55bdp               1/1     Running   0              3h7m
+ebs-csi-controller-77c5d76dd4-5xwdq           5/5     Running   0              3h7m
+ebs-csi-node-fkgxv                            3/3     Running   0              3h7m
+ebs-csi-node-glf9n                            3/3     Running   0              3h6m
+etcd-manager-events-i-018f27368f789bcd0       1/1     Running   0              3h7m
+etcd-manager-main-i-018f27368f789bcd0         1/1     Running   0              3h7m
+kops-controller-22ldk                         1/1     Running   0              3h7m
+kube-apiserver-i-018f27368f789bcd0            2/2     Running   1 (3h8m ago)   3h7m
+kube-controller-manager-i-018f27368f789bcd0   1/1     Running   3 (3h8m ago)   3h8m
+kube-scheduler-i-018f27368f789bcd0            1/1     Running   0              3h7m
+
+
+
+
+
+### Step22: the rest of the CI/CD setup is similar to the EKS procedure above. The users for this kops cluster2 is gitlab_cluster2 user to be used in gitlab for authentication to the kops cluster2 provisioning in staging and default namespaces.....
+
+
+
+
