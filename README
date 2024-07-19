@@ -984,8 +984,31 @@ Switched to context "cluster2.holinessinloveofchrist.com".
 
 ### Step20: Define the permissions for the gitlab_cluster2 user in the staging namespace
 
+#### Create the staging namespace
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user3_cluster2$ kubectl get ns
+NAME              STATUS   AGE
+default           Active   58m
+kube-node-lease   Active   58m
+kube-public       Active   58m
+kube-system       Active   58m
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user3_cluster2$ kubectl create ns staging  <<<<<<<<
+namespace/staging created
+
+ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user3_cluster2$ kubectl get ns
+NAME              STATUS   AGE
+default           Active   58m
+kube-node-lease   Active   58m
+kube-public       Active   58m
+kube-system       Active   58m
+staging           Active   4s
+
+kubectl create ns staging
 
 
+
+#### create teh role cicd to be used with the gitlab_cluster2 user (later step). This is the permissions role “cicd” for the gitlab_cluster2 user in this cluster2 context
 
 ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl create role cicd --verb="*" --resource="*" --namespace staging
 role.rbac.authorization.k8s.io/cicd created
@@ -996,7 +1019,7 @@ NAME   CREATED AT
 cicd   2024-07-18T01:06:15Z
 
 
-This will give complete access to the clsuter2 but only on the staing namespace which will be used for gitlab.
+
 
 
 #### add apiGroups * to permissions with edit of the cicd role
@@ -1032,15 +1055,6 @@ NAME   ROLE        AGE
 cicd   Role/cicd   24s
 
 
-#### create the staging namespace
-
-ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl config use-context cluster2.holinessinloveofchrist.com --kubeconfig=gitlab_cluster2-config
-Switched to context "cluster2.holinessinloveofchrist.com".
-
-
-#### Create the permissions role “cicd” for the gitlab_cluster2 user in this cluster2 context
-
-kubectl create role cicd --verb="*" --resource="*" --namespace staging
 
 
 
@@ -1110,7 +1124,7 @@ Error from server (Forbidden): pods is forbidden: User "gitlab_cluster2" cannot 
 
 
 
-This is with the admin user: as expected kube-system namespace (and the other ns) is accessible
+This is with the admin user (the default kubeconfig file under ~/.kube/config): as expected kube-system namespace (and the other ns) is accessible
 
 ubuntu@ip-172-31-21-52:~/course3_projects/4_CICD_EKS_Gitlab/source_files/weatherapp/gitlab_kops_cert_user2_cluster2$ kubectl get pods -n kube-system
 NAME                                          READY   STATUS    RESTARTS       AGE
