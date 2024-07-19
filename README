@@ -254,7 +254,7 @@ Error from server (Forbidden): nodes is forbidden: User "gitlab2" cannot list re
 In the controller SSH terminal 
 cat ~/.kube/eksctl/config | base64 | tr -d '\n' && echo
 
-And paste the contents into the ENV variable KUBEOCNFIG_EKS on gitlab Settings ---> CICD ----> Variables
+And paste the contents into the ENV variable KUBECONFIG_EKS on gitlab Settings ---> CICD ----> Variables
 
 Gitlab will use this kubecocnfig to get access to the current EKS with the permissions/role specified for gitlab2 user as indicated in previous section above
 
@@ -1151,6 +1151,27 @@ kube-scheduler-i-018f27368f789bcd0            1/1     Running   0              3
 
 
 ### Step22: the rest of the CI/CD setup is similar to the EKS procedure above. The users for this kops cluster2 is gitlab_cluster2 user to be used in gitlab for authentication to the kops cluster2 provisioning in staging and default namespaces.....
+
+
+
+
+### Step23: Update the gitlab ENV variable for the latest EKS .kube config file. The ENV variable on gitlab is called KUBECONFIG_EKS. For kops create a new ENV variable on gitlab called KUBECONFIG_KOPS. This needs to be the latest incarnation of the created cert gitlab_cluster2-config.  The kops setup uses gitlab_cluster2 user. The        .gitalb-ci.yml file will need editing to change from KUBECONFIG_EKS to KUBECONFIG_KOPS
+
+
+
+
+In the controller SSH terminal 
+
+cat gitlab_cluster2_7_18-config | base64 | tr -d '\n' && echo
+
+
+And paste the contents into the ENV variable KUBEOCNFIG_KOPS on gitlab Settings ---> CICD ----> Variables
+
+Gitlab will use this kubecocnfig to get access to the current kops cluster with the permissions/role specified for gitlab2_cluster2 user as indicated in previous section above
+
+
+
+
 
 
 
