@@ -72,6 +72,30 @@ For the promote and deploy to production (default namespace) the promote is only
 
 ## EKS implementation with eksctl (EKS K8s cluster) with gitlab pipelines
 
+### Step0: Create the aws IAM user gitlab2 that will have access to the cluster from gitlab, create the AWS_PROFILE and switch to the AWS_PROFILE in a new terminal to do the testing in Step
+
+
+This can be done via aws command line
+
+aws iam create-user --user-name gitlab2
+
+
+Create an access key and secret access key for the gitlab IAM user (this will be used to configure aws credentials Profile for gitlab2,  with the aws configure command)
+
+aws iam create-access-key --user-name gitlab2
+
+
+create the aws configure credentials (Profile) for the gitlab user using the IAM keys created earlier
+
+aws configure --profile gitlab2
+
+
+Change the terminal AWS_PROFILE to gitab on a new terminal
+
+export AWS_PROFILE=gitlab2
+
+Verify the setting with aws configure list
+
 ### Step1: Bring up the EC2 controller
 
 The controller has all neceassary software for executing the CI/CD pipeline.  eksctl and kops are installed
@@ -225,7 +249,7 @@ kubectl create rolebinding cicd --role cicd --user=gitlab2
 
 ### Step6: Test out the role provisioning of the gitlab2 user:
 
-switch to AWS_PROFILE=gitlab2 on the SSH terminal
+switch to AWS_PROFILE=gitlab2 on the SSH terminal or preferably use a new terminal.
 Verify with: aws configure list
 
 run kubectl get pods -n staging and kubectl get pods
